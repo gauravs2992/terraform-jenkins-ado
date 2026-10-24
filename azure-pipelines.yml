@@ -1,0 +1,21 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: TerraformInstaller@0
+  inputs:
+    terraformVersion: '1.5.7'
+
+- task: TerraformCLI@0
+  inputs:
+    command: 'init'
+    backendType: 'azurerm'
+    backendServiceArm: 'Gaurav Sharma'
+
+- task: TerraformCLI@0
+  inputs:
+    command: 'plan'
+    environmentServiceNameAzureRM: 'Gaurav Sharma'
