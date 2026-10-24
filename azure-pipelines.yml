@@ -5,23 +5,17 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-- checkout: self
-
-- task: AzureCLI@2
+- task: TerraformInstaller@0
   inputs:
-    azureSubscription: 'Gaurav Sharma'   # your service connection name
-    scriptType: 'bash'
-    scriptLocation: 'inlineScript'
-    inlineScript: |
-      # Install Terraform
-      sudo apt-get update && sudo apt-get install -y wget unzip
-      wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
-      unzip terraform_1.5.7_linux_amd64.zip
-      sudo mv terraform /usr/local/bin/
+    terraformVersion: '1.5.7'
 
-      terraform -version
+- task: TerraformCLI@0
+  inputs:
+    command: 'init'
+    backendType: 'azurerm'
+    backendServiceArm: 'Gaurav Sharma'
 
-      # Run Terraform in the repo folder
-      cd $(Build.SourcesDirectory)
-      terraform init
-      terraform plan
+- task: TerraformCLI@0
+  inputs:
+    command: 'plan'
+    environmentServiceNameAzureRM: 'Gaurav Sharma'
