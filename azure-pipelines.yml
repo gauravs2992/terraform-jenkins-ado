@@ -9,7 +9,7 @@ steps:
 
 - task: AzureCLI@2
   inputs:
-    azureSubscription: 'terraform-azure-sp'   # your service connection name
+    azureSubscription: 'Gaurav Sharma'   # your service connection name
     scriptType: 'bash'
     scriptLocation: 'inlineScript'
     inlineScript: |
