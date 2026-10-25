@@ -1,27 +1,81 @@
 trigger:
-- main
+  branches:
+    include:
+      - main
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: ubuntu-latest
+
+variables:
+  terraformVersion: 1.9.8
+  terraformStateKey: jenkins/terraform.tfstate
 
 steps:
-- checkout: self
+  - checkout: self
 
-- task: AzureCLI@2
-  inputs:
-    azureSubscription: 'Gaurav Sharma'   # your service connection name
-    scriptType: 'bash'
-    scriptLocation: 'inlineScript'
-    inlineScript: |
-      # Install Terraform
-      sudo apt-get update && sudo apt-get install -y wget unzip
-      wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
-      unzip terraform_1.5.7_linux_amd64.zip
-      sudo mv terraform /usr/local/bin/
+  - task: Bash@3
+    displayName: Install Terraform
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
 
-      terraform -version
+        version="$(terraformVersion)"
+        install_dir="$(Agent.ToolsDirectory)/terraform/${version}/x64"
+        mkdir -p "$install_dir"
+        cd "$(Agent.TempDirectory)"
 
-      # Run Terraform in the repo folder
-      cd $(Build.SourcesDirectory)
-      terraform init
-      terraform plan
+        archive="terraform_${version}_linux_amd64.zip"
+        curl -fsSLO "https://releases.hashicorp.com/terraform/${version}/${archive}"
+        curl -fsSLO "https://releases.hashicorp.com/terraform/${version}/terraform_${version}_SHA256SUMS"
+        grep " ${archive}$" "terraform_${version}_SHA256SUMS" | sha256sum --check --status
+        unzip -oq "$archive" -d "$install_dir"
+
+        echo "##vso[task.prependpath]$install_dir"
+        "$install_dir/terraform" version
+
+  - task: AzureCLI@2
+    displayName: Deploy Jenkins with Terraform
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    inputs:
+      azureSubscription: $(AZURE_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+
+        require_set() {
+          local name="$1"
+          local value="${!name:-}"
+          if [[ -z "$value" || "$value" == *'$('* ]]; then
+            echo "Required Azure DevOps variable is not configured: $name" >&2
+            exit 1
+          fi
+        }
+
+        require_set TF_STATE_RESOURCE_GROUP
+        require_set TF_STATE_STORAGE_ACCOUNT
+        require_set TF_STATE_CONTAINER
+        require_set TF_VAR_admin_ssh_public_key
+        require_set TF_VAR_admin_source_cidr
+
+        export ARM_USE_CLI=true
+        export ARM_SUBSCRIPTION_ID="$(az account show --query id --output tsv)"
+        terraform -chdir="$(Build.SourcesDirectory)" init \
+          -input=false \
+          -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
+          -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" \
+          -backend-config="container_name=${TF_STATE_CONTAINER}" \
+          -backend-config="key=$(terraformStateKey)" \
+          -backend-config="use_azuread_auth=true"
+        terraform -chdir="$(Build.SourcesDirectory)" fmt -check -recursive
+        terraform -chdir="$(Build.SourcesDirectory)" validate
+        terraform -chdir="$(Build.SourcesDirectory)" plan -input=false -out=tfplan
+        terraform -chdir="$(Build.SourcesDirectory)" apply -input=false -auto-approve tfplan
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_STATE_RESOURCE_GROUP: $(TF_STATE_RESOURCE_GROUP)
+      TF_STATE_STORAGE_ACCOUNT: $(TF_STATE_STORAGE_ACCOUNT)
+      TF_STATE_CONTAINER: $(TF_STATE_CONTAINER)
+      TF_VAR_admin_ssh_public_key: $(JENKINS_ADMIN_SSH_PUBLIC_KEY)
+      TF_VAR_admin_source_cidr: $(JENKINS_ADMIN_CIDR)
