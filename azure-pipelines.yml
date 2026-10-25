@@ -9,6 +9,7 @@ pool:
 variables:
   terraformVersion: 1.9.8
   terraformStateKey: jenkins/terraform.tfstate
+  terraformStateLocation: eastus
 
 steps:
   - checkout: self
@@ -60,6 +61,11 @@ steps:
         require_set TF_VAR_admin_password
         require_set TF_VAR_admin_source_cidr
 
+        if [[ ! "$TF_STATE_STORAGE_ACCOUNT" =~ ^[a-z0-9]{3,24}$ ]]; then
+          echo "TF_STATE_STORAGE_ACCOUNT must be 3-24 lowercase letters or numbers." >&2
+          exit 1
+        fi
+
         export ARM_SUBSCRIPTION_ID="$(az account show --query id --output tsv)"
         export ARM_CLIENT_ID="${servicePrincipalId:-}"
         export ARM_TENANT_ID="${tenantId:-}"
@@ -75,13 +81,53 @@ steps:
           exit 1
         fi
 
+        az group create \
+          --name "$TF_STATE_RESOURCE_GROUP" \
+          --location "$(terraformStateLocation)" \
+          --output none
+
+        if ! az storage account show \
+          --name "$TF_STATE_STORAGE_ACCOUNT" \
+          --resource-group "$TF_STATE_RESOURCE_GROUP" \
+          --output none 2>/dev/null; then
+          az storage account create \
+            --name "$TF_STATE_STORAGE_ACCOUNT" \
+            --resource-group "$TF_STATE_RESOURCE_GROUP" \
+            --location "$(terraformStateLocation)" \
+            --sku Standard_LRS \
+            --kind StorageV2 \
+            --https-only true \
+            --min-tls-version TLS1_2 \
+            --allow-blob-public-access false \
+            --output none
+        fi
+
+        state_access_key="$(az storage account keys list \
+          --account-name "$TF_STATE_STORAGE_ACCOUNT" \
+          --resource-group "$TF_STATE_RESOURCE_GROUP" \
+          --query '[0].value' \
+          --output tsv)"
+        if [[ -z "$state_access_key" || "$state_access_key" == "None" ]]; then
+          echo "Could not retrieve the Terraform state storage account key." >&2
+          exit 1
+        fi
+        echo "##vso[task.setsecret]$state_access_key"
+        export ARM_ACCESS_KEY="$state_access_key"
+
+        AZURE_STORAGE_KEY="$state_access_key" az storage container create \
+          --name "$TF_STATE_CONTAINER" \
+          --account-name "$TF_STATE_STORAGE_ACCOUNT" \
+          --auth-mode key \
+          --public-access off \
+          --output none
+
         terraform -chdir="$(Build.SourcesDirectory)" init \
           -input=false \
           -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
           -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" \
           -backend-config="container_name=${TF_STATE_CONTAINER}" \
           -backend-config="key=$(terraformStateKey)" \
-          -backend-config="use_azuread_auth=true"
+          -backend-config="use_azuread_auth=false"
         terraform -chdir="$(Build.SourcesDirectory)" fmt -check -recursive
         terraform -chdir="$(Build.SourcesDirectory)" validate
         terraform -chdir="$(Build.SourcesDirectory)" plan -input=false -out=tfplan
