@@ -9,7 +9,7 @@ The VM exposes SSH and Jenkins HTTP (port 8080) only to the configured administr
 
 ## Prerequisites
 
-1. An Azure Resource Manager service connection in Azure DevOps, with permission to create the deployment resources (Contributor at the target subscription or resource-group scope).
+1. An enabled Azure Resource Manager service connection named `Gaurav Sharma` in Azure DevOps, with permission to create the deployment resources (Contributor at the target subscription or resource-group scope). The pipeline references the service connection by its literal name because Azure DevOps does not resolve runtime variables for service connection inputs. If your connection has a different name, replace the `azureSubscription` value in `azure-pipelines.yml` with that exact name. In **Project settings > Service connections**, authorize the connection for this pipeline (or enable access for all pipelines).
 2. A Terraform state storage account and blob container in Azure. The service connection identity needs `Storage Blob Data Contributor` on the state container. Create these once before running the pipeline, for example:
 
    ```bash
@@ -32,7 +32,6 @@ The VM exposes SSH and Jenkins HTTP (port 8080) only to the configured administr
 
    | Variable | Secret? | Value |
    | --- | --- | --- |
-   | `AZURE_SERVICE_CONNECTION` | No | Name of the Azure Resource Manager service connection |
    | `TF_STATE_RESOURCE_GROUP` | No | Resource group containing the Terraform state account |
    | `TF_STATE_STORAGE_ACCOUNT` | No | Name of the Terraform state storage account |
    | `TF_STATE_CONTAINER` | No | Blob container for Terraform state (for example, `tfstate`) |

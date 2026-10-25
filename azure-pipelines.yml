@@ -38,7 +38,7 @@ steps:
     displayName: Deploy Jenkins with Terraform
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     inputs:
-      azureSubscription: $(AZURE_SERVICE_CONNECTION)
+      azureSubscription: 'Gaurav Sharma'
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
