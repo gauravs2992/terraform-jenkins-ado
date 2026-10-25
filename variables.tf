@@ -33,14 +33,29 @@ variable "admin_username" {
   default     = "jenkinsadmin"
 }
 
-variable "admin_ssh_public_key" {
-  description = "SSH public key to install for the Linux administrator."
+variable "admin_password" {
+  description = "Password for the Linux administrator account. Store as an Azure DevOps secret variable."
   type        = string
   sensitive   = true
 
   validation {
-    condition     = length(trimspace(var.admin_ssh_public_key)) > 0
-    error_message = "Provide an SSH public key through the JENKINS_ADMIN_SSH_PUBLIC_KEY pipeline variable."
+    condition     = length(var.admin_password) >= 12 && length(var.admin_password) <= 72
+    error_message = "The administrator password must be between 12 and 72 characters."
+  }
+
+  validation {
+    condition = (
+      (can(regex("[A-Z]", var.admin_password)) ? 1 : 0) +
+      (can(regex("[a-z]", var.admin_password)) ? 1 : 0) +
+      (can(regex("[0-9]", var.admin_password)) ? 1 : 0) +
+      (can(regex("[^A-Za-z0-9]", var.admin_password)) ? 1 : 0)
+    ) >= 3
+    error_message = "The administrator password must include at least three of: uppercase, lowercase, number, and special character."
+  }
+
+  validation {
+    condition     = !strcontains(lower(var.admin_password), lower(var.admin_username))
+    error_message = "The administrator password must not contain the administrator username."
   }
 }
 

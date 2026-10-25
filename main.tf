@@ -106,15 +106,11 @@ resource "azurerm_linux_virtual_machine" "jenkins" {
   location                        = azurerm_resource_group.jenkins.location
   size                            = var.vm_size
   admin_username                  = var.admin_username
-  disable_password_authentication = true
+  admin_password                  = var.admin_password
+  disable_password_authentication = false
   network_interface_ids           = [azurerm_network_interface.jenkins.id]
   custom_data                     = base64encode(file("${path.module}/cloud-init.yaml"))
   tags                            = var.tags
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = var.admin_ssh_public_key
-  }
 
   os_disk {
     caching              = "ReadWrite"
