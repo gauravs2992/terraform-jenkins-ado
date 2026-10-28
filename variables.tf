@@ -1,7 +1,7 @@
 variable "location" {
   description = "Azure region for the Jenkins resources."
   type        = string
-  default     = "East US"
+  default     = "West US2"
 }
 
 variable "resource_group_name" {
@@ -22,9 +22,9 @@ variable "name_prefix" {
 }
 
 variable "vm_size" {
-  description = "Azure VM size for the Jenkins host."
+  description = "Azure VM size for the Jenkins host; select a size available in the chosen region."
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_D2als_v7"
 }
 
 variable "admin_username" {

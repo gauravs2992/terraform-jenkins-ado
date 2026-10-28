@@ -10,6 +10,7 @@ variables:
   terraformVersion: 1.9.8
   terraformStateKey: jenkins/terraform.tfstate
   terraformStateLocation: eastus
+  jenkinsVmSize: Standard_B2ms
 
 steps:
   - checkout: self
@@ -137,5 +138,6 @@ steps:
       TF_STATE_RESOURCE_GROUP: $(TF_STATE_RESOURCE_GROUP)
       TF_STATE_STORAGE_ACCOUNT: $(TF_STATE_STORAGE_ACCOUNT)
       TF_STATE_CONTAINER: $(TF_STATE_CONTAINER)
+      TF_VAR_vm_size: $(jenkinsVmSize)
       TF_VAR_admin_password: $(JENKINS_ADMIN_PASSWORD)
       TF_VAR_admin_source_cidr: $(JENKINS_ADMIN_CIDR)

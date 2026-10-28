@@ -26,7 +26,7 @@ The VM exposes SSH and Jenkins HTTP (port 8080) only to the configured administr
 
 ## Run
 
-Commit or merge the pipeline to `main` to deploy. The pipeline pins Terraform, verifies the downloaded archive checksum, creates the remote state resources before initializing the Azure Blob backend, validates the configuration, and applies the plan. It retrieves the storage account key at runtime and masks it in pipeline logs. Re-running it reuses the same state container and updates the deployment. The VM uses Canonical's Ubuntu 24.04 LTS marketplace image.
+Commit or merge the pipeline to `main` to deploy. The pipeline pins Terraform, verifies the downloaded archive checksum, creates the remote state resources before initializing the Azure Blob backend, validates the configuration, and applies the plan. It retrieves the storage account key at runtime and masks it in pipeline logs. Re-running it reuses the same state container and updates the deployment. The VM uses Canonical's Ubuntu 24.04 LTS marketplace image and defaults to `Standard_B2ms` (2 vCPUs, 8 GiB RAM) to avoid the reported `Standard_B2s` capacity issue. VM capacity varies by region and subscription; if Azure reports `SkuNotAvailable` again, select an available size by changing `jenkinsVmSize` in `azure-pipelines.yml` or select a region with capacity.
 
 After provisioning, the Terraform outputs include the Jenkins URL, public IP, and SSH command. Open the URL from the configured CIDR. Connect over SSH and enter the Linux administrator password when prompted:
 
