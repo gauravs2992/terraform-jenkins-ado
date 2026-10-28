@@ -60,12 +60,16 @@ variable "admin_password" {
 }
 
 variable "admin_source_cidr" {
-  description = "Single trusted IPv4 CIDR allowed to reach SSH and Jenkins on port 8080."
+  description = "Trusted IPv4 CIDR allowed to reach SSH and Jenkins on port 8080."
   type        = string
 
   validation {
-    condition     = can(cidrnetmask(var.admin_source_cidr)) && var.admin_source_cidr != "0.0.0.0/0"
-    error_message = "admin_source_cidr must be a valid IPv4 CIDR other than 0.0.0.0/0."
+    condition = (
+      can(cidrnetmask(var.admin_source_cidr)) &&
+      var.admin_source_cidr != "0.0.0.0/0" &&
+      try(split("/", var.admin_source_cidr)[0] == cidrhost(var.admin_source_cidr, 0), false)
+    )
+    error_message = "admin_source_cidr must be a canonical IPv4 CIDR (use the network address, or /32 for one IP) and must not be 0.0.0.0/0."
   }
 }
 

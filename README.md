@@ -18,15 +18,15 @@ The VM exposes SSH and Jenkins HTTP (port 8080) only to the configured administr
    | `TF_STATE_STORAGE_ACCOUNT` | No | Globally unique storage account name (3-24 lowercase letters or numbers) |
    | `TF_STATE_CONTAINER` | No | Blob container to create/use for Terraform state (for example, `tfstate`) |
    | `JENKINS_ADMIN_PASSWORD` | **Yes** | Strong Linux administrator password (12-72 characters; use at least three character types) |
-   | `JENKINS_ADMIN_CIDR` | No | Trusted IPv4 CIDR allowed to access SSH and Jenkins, for example `203.0.113.10/32` |
+   | `JENKINS_ADMIN_CIDR` | No | Trusted IPv4 CIDR allowed to access SSH and Jenkins; use your exact public IP with `/32`, or the network address for a subnet |
 
-   Mark `JENKINS_ADMIN_PASSWORD` as secret in Azure DevOps. Password-based SSH is enabled, but access is restricted to the configured CIDR; do not use `0.0.0.0/0`. Terraform stores the VM password in its state, so protect the state storage account and limit access to it.
+   Mark `JENKINS_ADMIN_PASSWORD` as secret in Azure DevOps. Password-based SSH is enabled, but access is restricted to the configured CIDR; do not use `0.0.0.0/0`. Use canonical CIDR notation: for a single IP use `<your-public-ip>/32`; for a subnet use its network address (for example, `203.0.113.0/24`, not `203.0.113.10/24`). Terraform stores the VM password in its state, so protect the state storage account and limit access to it.
    The pipeline creates the state resource group, storage account, and private blob container if they do not already exist. The storage account is created in `eastus` by default; change `terraformStateLocation` in `azure-pipelines.yml` to use another region. The service connection needs permission to create resource groups and storage accounts and retrieve a storage account key. The backend uses that key at runtime, masked in logs, so restrict service-connection and state-account access.
 3. Ensure the Azure DevOps agent can reach Azure and HashiCorp's Terraform release host.
 
 ## Run
 
-Commit or merge the pipeline to `main` to deploy. The pipeline pins Terraform, verifies the downloaded archive checksum, creates the remote state resources before initializing the Azure Blob backend, validates the configuration, and applies the plan. It retrieves the storage account key at runtime and masks it in pipeline logs. Re-running it reuses the same state container and updates the deployment.
+Commit or merge the pipeline to `main` to deploy. The pipeline pins Terraform, verifies the downloaded archive checksum, creates the remote state resources before initializing the Azure Blob backend, validates the configuration, and applies the plan. It retrieves the storage account key at runtime and masks it in pipeline logs. Re-running it reuses the same state container and updates the deployment. The VM uses Canonical's Ubuntu 24.04 LTS marketplace image.
 
 After provisioning, the Terraform outputs include the Jenkins URL, public IP, and SSH command. Open the URL from the configured CIDR. Connect over SSH and enter the Linux administrator password when prompted:
 
