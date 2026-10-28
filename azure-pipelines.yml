@@ -9,8 +9,10 @@ pool:
 variables:
   terraformVersion: 1.9.8
   terraformStateKey: jenkins/terraform.tfstate
-  terraformStateLocation: eastus
-  jenkinsVmSize: Standard_B2ms
+  terraformStateLocation: west us2
+  jenkinsResourceGroupName: rg-jenkins-ado
+  jenkinsNamePrefix: jenkins-ado
+  jenkinsVmSize: Standard_D2als_v7
 
 steps:
   - checkout: self
@@ -131,6 +133,32 @@ steps:
           -backend-config="use_azuread_auth=false"
         terraform -chdir="$(Build.SourcesDirectory)" fmt -check -recursive
         terraform -chdir="$(Build.SourcesDirectory)" validate
+
+        terraform -chdir="$(Build.SourcesDirectory)" apply \
+          -input=false \
+          -auto-approve \
+          -target=azurerm_virtual_network.jenkins \
+          -target=azurerm_subnet.jenkins
+
+        subnet_ready=false
+        for attempt in {1..12}; do
+          if az network vnet subnet show \
+            --resource-group "$TF_VAR_resource_group_name" \
+            --vnet-name "${TF_VAR_name_prefix}-vnet" \
+            --name "${TF_VAR_name_prefix}-subnet" \
+            --output none 2>/dev/null; then
+            subnet_ready=true
+            break
+          fi
+          echo "Subnet is not visible in Azure yet (attempt ${attempt}/12); waiting 10 seconds."
+          sleep 10
+        done
+
+        if [[ "$subnet_ready" != true ]]; then
+          echo "The Jenkins subnet was not visible in Azure after 120 seconds." >&2
+          exit 1
+        fi
+
         terraform -chdir="$(Build.SourcesDirectory)" plan -input=false -out=tfplan
         terraform -chdir="$(Build.SourcesDirectory)" apply -input=false -auto-approve tfplan
     env:
@@ -138,6 +166,8 @@ steps:
       TF_STATE_RESOURCE_GROUP: $(TF_STATE_RESOURCE_GROUP)
       TF_STATE_STORAGE_ACCOUNT: $(TF_STATE_STORAGE_ACCOUNT)
       TF_STATE_CONTAINER: $(TF_STATE_CONTAINER)
+      TF_VAR_resource_group_name: $(jenkinsResourceGroupName)
+      TF_VAR_name_prefix: $(jenkinsNamePrefix)
       TF_VAR_vm_size: $(jenkinsVmSize)
       TF_VAR_admin_password: $(JENKINS_ADMIN_PASSWORD)
       TF_VAR_admin_source_cidr: $(JENKINS_ADMIN_CIDR)
